@@ -41,7 +41,7 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
       });
       setNewTask('');
 
-      // 🔄 Refresh this panel’s tasks
+      // 🔄 Ask the hook to reload this panel’s tasks
       const event = new CustomEvent('refreshTasks', { detail: listId });
       window.dispatchEvent(event);
     } catch (err) {
@@ -51,16 +51,21 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
 
   return (
     <div className="task-panel">
-      <h3>Tasks</h3>
       {loading && <p>Loading...</p>}
-      {!loading && tasks.length === 0 && <p>No task found.</p>}
-      <ul>
-        {tasks.map((task) => (
-          <li key={task.id} onClick={() => onSelectTask(task)} className="task-item">
-            {task.title}
-          </li>
-        ))}
-      </ul>
+      {!loading && tasks.length === 0 && <p>No tasks found.</p>}
+      {!loading && tasks.length > 0 && (
+        <ul>
+          {tasks.map((task) => (
+            <li
+              key={task.id}
+              onClick={() => onSelectTask(task)}
+              className="task-item"
+            >
+              {task.title}
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="add-task-container">
         <input
           type="text"
