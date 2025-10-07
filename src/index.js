@@ -7,11 +7,14 @@ import msalConfig from './authConfig';
 
 const msalInstance = new PublicClientApplication(msalConfig);
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <MsalProvider instance={msalInstance}>
-      <App />
-    </MsalProvider>
-  </React.StrictMode>
-);
+// Ensure MSAL processes the redirect response before rendering
+msalInstance.handleRedirectPromise().then(() => {
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(
+    <React.StrictMode>
+      <MsalProvider instance={msalInstance}>
+        <App />
+      </MsalProvider>
+    </React.StrictMode>
+  );
+});
