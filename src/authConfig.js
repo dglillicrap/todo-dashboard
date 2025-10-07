@@ -10,4 +10,14 @@ const msalConfig = {
   }
 };
 
-export default msalConfig;
+export default {
+  auth: {
+    clientId: "<same Azure client ID>",
+    authority: "https://login.microsoftonline.com/common",
+    redirectUri: "https://todo-dgl.onrender.com"
+  },
+  cache: {
+    cacheLocation: "localStorage",
+    storeAuthStateInCookie: false
+  }
+};
