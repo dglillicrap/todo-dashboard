@@ -4,6 +4,8 @@ body {
 }
 
 .dashboard {
+  background-color: #d6eaff; /* Light blue */
+  min-height: 100vh; /* Ensures full height */
   padding: 10px;
 }
 
