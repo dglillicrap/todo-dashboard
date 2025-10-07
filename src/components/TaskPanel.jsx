@@ -37,6 +37,12 @@ Authorization: `Bearer ${response.accessToken}`,
 body: JSON.stringify({ title: newTask }),
 });
 setNewTask('');
+// 🔄 Trigger local refresh by reloading tasks
+if (typeof window !== 'undefined') {
+  // Simple and safe for now — forces useTasks to rerun
+  const event = new CustomEvent('refreshTasks', { detail: listId });
+  window.dispatchEvent(event);
+}
 // Panels will re-fetch when refreshKey changes from parent if needed
 };
 
