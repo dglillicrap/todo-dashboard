@@ -1,131 +1,79 @@
 // src/components/TaskPanel.jsx
 import React, { useState } from 'react';
-import { useMsal } from '@azure/msal-react';
-import { InteractionRequiredAuthError } from '@azure/msal-browser';
+import { useMsal, InteractionRequiredAuthError } from '@azure/msal-react';
 import useTasks from '../hooks/useTasks';
 
-const TaskPanel = ({ listId, refreshKey = 0, onSelectTask }) => {
-const { instance } = useMsal();
-const [newTask, setNewTask] = useState('');
-const { tasks, loading: loadingTasks } = useTasks(listId, refreshKey);
+const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
+  const { instance } = useMsal();
+  const { tasks, loading } = useTasks(listId, refreshKey);
+  const [newTask, setNewTask] = useState('');
 
-const handleAddTask = async () => {
-if (!newTask.trim() || !listId) return;
-const account = instance.getActiveAccount();
-if (!account) return;
-let response;
-try {
-response = await instance.acquireTokenSilent({
-scopes: ['Tasks.ReadWrite'],
-account,
-});
-} catch (error) {
-if (error instanceof InteractionRequiredAuthError) {
-response = await instance.loginPopup({ scopes: ['Tasks.ReadWrite'] });
-instance.setActiveAccount(response.account);
-} else {
-console.error('Error acquiring token:', error);
-return;
-}
-}
-await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks`, {
-method: 'POST',
-headers: {
-Authorization: `Bearer ${response.accessToken}`,
-'Content-Type': 'application/json',
-},
-body: JSON.stringify({ title: newTask }),
-});
-setNewTask('');
-// 🔄 Trigger local refresh by reloading tasks
-if (typeof window !== 'undefined') {
-  // Simple and safe for now — forces useTasks to rerun
-  const event = new CustomEvent('refreshTasks', { detail: listId });
-  window.dispatchEvent(event);
-}
-// Panels will re-fetch when refreshKey changes from parent if needed
-};
+  const handleAddTask = async () => {
+    if (!newTask.trim() || !listId) return;
+    const account = instance.getActiveAccount();
+    if (!account) return;
 
-const handleCompleteTask = async (taskId) => {
-const account = instance.getActiveAccount();
-if (!account) return;
-let response;
-try {
-response = await instance.acquireTokenSilent({
-scopes: ['Tasks.ReadWrite'],
-account,
-});
-} catch (error) {
-if (error instanceof InteractionRequiredAuthError) {
-response = await instance.loginPopup({ scopes: ['Tasks.ReadWrite'] });
-instance.setActiveAccount(response.account);
-} else {
-console.error('Error acquiring token:', error);
-return;
-}
-}
-await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${taskId}`, {
-method: 'PATCH',
-headers: {
-Authorization: `Bearer ${response.accessToken}`,
-'Content-Type': 'application/json',
-},
-body: JSON.stringify({ status: 'completed' }),
-});
-};
+    let response;
+    try {
+      response = await instance.acquireTokenSilent({
+        scopes: ['Tasks.ReadWrite'],
+        account,
+      });
+    } catch (error) {
+      if (error instanceof InteractionRequiredAuthError) {
+        response = await instance.loginPopup({ scopes: ['Tasks.ReadWrite'] });
+        instance.setActiveAccount(response.account);
+      } else {
+        console.error('Error acquiring token:', error);
+        return;
+      }
+    }
 
-// Filter + sort (incomplete only, 🕳️/~ to bottom)
-const incompleteTasks = (tasks || [])
-.filter((task) => task.status !== 'completed')
-.sort((a, b) => {
-const aTitle = a.title || '';
-const bTitle = b.title || '';
-const aIsBottom = aTitle.startsWith('🕳️') || aTitle.startsWith('~');
-const bIsBottom = bTitle.startsWith('🕳️') || bTitle.startsWith('~');
-if (aIsBottom && !bIsBottom) return 1;
-if (!aIsBottom && bIsBottom) return -1;
-return aTitle.localeCompare(bTitle);
-});
+    try {
+      await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${response.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: newTask }),
+      });
+      setNewTask('');
 
-return (
-<div>
-{loadingTasks ? (
-<p style={{ fontSize: '0.8rem' }}>Loading tasks...</p>
-) : incompleteTasks.length === 0 ? (
-<p style={{ fontSize: '0.8rem' }}>No tasks found.</p>
-) : (
-<ul style={{ fontSize: '0.8rem' }}>
-{incompleteTasks.map((task) => (
-<li key={task.id}>
-<input
-type="checkbox"
-onChange={() => handleCompleteTask(task.id)}
-style={{ marginRight: '6px' }}
-/>
-<span onClick={() => onSelectTask(task)}>{task.title}</span>
-</li>
-))}
-</ul>
-)}
+      // 🔄 Trigger re-fetch of this panel’s tasks
+      const event = new CustomEvent('refreshTasks', { detail: listId });
+      window.dispatchEvent(event);
+    } catch (err) {
+      console.error('Error creating new task:', err);
+    }
+  };
 
-<input
-type="text"
-value={newTask}
-onChange={(e) => setNewTask(e.target.value)}
-onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-placeholder="Add new task"
-/* ✅ Light blue background, light grey border, keep text color */
-style={{
-width: '100%',
-marginTop: '8px',
-fontSize: '0.8rem',
-backgroundColor: '#d6eaff', // same as page background
-border: '1px solid #d0d0d0', // light grey border
-color: 'inherit' // keep current text color
-}}
-/>
-</div>
-);
+  return (
+    <div className="task-panel">
+      <h3>Tasks</h3>
+      {loading && <p>Loading...</p>}
+      {!loading && tasks.length === 0 && <p>No task found.</p>}
+      <ul>
+        {tasks.map((task) => (
+          <li key={task.id} onClick={() => onSelectTask(task)} className="task-item">
+            {task.title}
+          </li>
+        ))}
+      </ul>
+      <div className="add-task-container">
+        <input
+          type="text"
+          value={newTask}
+          onChange={(e) => setNewTask(e.target.value)}
+          placeholder="Add new task..."
+          className="task-input"
+        />
+        <button onClick={handleAddTask} className="add-task-button">
+          Add
+        </button>
+      </div>
+    </div>
+  );
 };
 
 export default TaskPanel;
