@@ -1,6 +1,7 @@
 // src/components/TaskPanel.jsx
 import React, { useState } from 'react';
-import { useMsal, InteractionRequiredAuthError } from '@azure/msal-react';
+import { useMsal } from '@azure/msal-react';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import useTasks from '../hooks/useTasks';
 
 const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
@@ -40,7 +41,7 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
       });
       setNewTask('');
 
-      // 🔄 Trigger re-fetch of this panel’s tasks
+      // 🔄 Refresh this panel’s tasks
       const event = new CustomEvent('refreshTasks', { detail: listId });
       window.dispatchEvent(event);
     } catch (err) {
