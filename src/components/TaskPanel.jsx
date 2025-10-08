@@ -73,6 +73,10 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
   // Show only incomplete tasks
   const visibleTasks = tasks.filter((t) => t.status !== 'completed');
 
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') handleAddTask();
+  };
+
   return (
     <div className="task-panel">
       {loading && <p>Loading...</p>}
@@ -101,12 +105,18 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
           type="text"
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
+          onKeyDown={handleKeyPress}
           placeholder="Add new task..."
           className="task-input"
+          style={{
+            backgroundColor: '#e6f2ff', // light blue
+            border: '1px solid #d3d3d3', // light gray border
+            borderRadius: '4px',
+            padding: '6px 8px',
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
         />
-        <button onClick={handleAddTask} className="add-task-button">
-          Add
-        </button>
       </div>
     </div>
   );
