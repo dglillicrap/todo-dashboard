@@ -70,7 +70,7 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
     }
   };
 
-  // Only show tasks not completed
+  // Show only incomplete tasks
   const visibleTasks = tasks.filter((t) => t.status !== 'completed');
 
   return (
@@ -81,13 +81,17 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
         <ul>
           {visibleTasks.map((task) => (
             <li key={task.id} className="task-item">
-              <label>
-                <input
-                  type="checkbox"
-                  onChange={() => handleToggleComplete(task)}
-                />
+              <input
+                type="checkbox"
+                onChange={() => handleToggleComplete(task)}
+                style={{ marginRight: '8px' }}
+              />
+              <span
+                onClick={() => onSelectTask(task)}
+                style={{ cursor: 'pointer' }}
+              >
                 {task.title}
-              </label>
+              </span>
             </li>
           ))}
         </ul>
