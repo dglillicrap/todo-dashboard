@@ -1,76 +1,79 @@
-import React, { useState, useEffect } from 'react';
-import { useMsal } from '@azure/msal-react';
-import { PublicClientApplication } from '@azure/msal-browser';
+import React, { useState } from "react";
+import { useMsal } from "@azure/msal-react";
+import { loginRequest } from "./authConfig";
+import TaskPanel from "./TaskPanel";
+import PreviewPanel from "./PreviewPanel";
+import useTaskLists from "./useTaskLists";
+import useTasks from "./useTasks";
 
-import SignInButton from './components/SignInButton';
-import useTasks from './hooks/useTasks';
-import useTaskLists from './hooks/useTaskLists';
-import TaskListSelector from './components/TaskListSelector';
-import TaskPanel from './components/TaskPanel';
-import PreviewPanel from './components/PreviewPanel';
-
-const msalInstance = new PublicClientApplication({
-  auth: {
-    clientId: '19f19e6c-8ddc-44c0-b1fd-7b0e8a549d7b',
-    authority: 'https://login.microsoftonline.com/common',
-    redirectUri: 'http://localhost:3000'
-  },
-  cache: {
-    cacheLocation: 'localStorage',
-    storeAuthStateInCookie: false
-  }
-});
-
-function App() {
+const App = () => {
   const { instance } = useMsal();
-  const { taskLists, groupName, fetchTaskLists, setGroupName } = useTaskLists();
-  const { tasks, fetchTasks } = useTasks();
-
   const [selectedListId, setSelectedListId] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  useEffect(() => {
-    if (instance.getActiveAccount()) {
-      fetchTaskLists();
-    }
-  }, [instance, fetchTaskLists]);
+  // Fetch all task lists and their loading state.
+  const { taskLists, loading: listsLoading } = useTaskLists();
+  // Fetch tasks for the currently selected list.
+  const { tasks, loading: tasksLoading } = useTasks(selectedListId);
 
-  useEffect(() => {
-    if (selectedListId) {
-      fetchTasks(selectedListId, groupName);
+  // Sign in/out handlers
+  const handleSignIn = async () => {
+    try {
+      await instance.loginPopup(loginRequest);
+    } catch (error) {
+      console.error(error);
     }
-  }, [selectedListId, groupName, fetchTasks]);
+  };
+
+  const handleSignOut = () => {
+    instance.logoutPopup();
+  };
+
+  // Called when a list selector is changed
+  const handleListChange = (event) => {
+    const listId = event.target.value;
+    setSelectedListId(listId);
+    setSelectedTask(null);
+  };
+
+  // Called when a task is clicked in a panel
+  const handleTaskClick = (task) => {
+    setSelectedTask(task);
+  };
+
+  // Render 5 panels for selecting and displaying tasks.
+  const panels = Array.from({ length: 5 });
 
   return (
-    <div>
-      <SignInButton />
-      {instance.getActiveAccount() && (
-        <>
-          <button onClick={() => instance.logoutRedirect()}>Sign Out</button>
-          <TaskListSelector
-            lists={taskLists.filter(list => list.groupName === groupName)}
-            selectedListId={selectedListId}
-            onChange={setSelectedListId}
-          />
+    <div className="app">
+      <header>
+      {/* Sign-in buttons */}
+        <button onClick={handleSignIn}>Sign In</button>
+        <button onClick={handleSignOut}>Sign Out</button>
+      </header>
+      <div className="panels">
+        {/* Show five panels that all use the same current list and tasks */}
+        {panels.map((_, index) => (
           <TaskPanel
-            listId={selectedListId}
+            key={index}
+            index={index}
+            taskLists={taskLists}
             tasks={tasks}
-            onSelectTask={setSelectedTask}
-            groupName={groupName}
+            loading={listsLoading || tasksLoading}
+            selectedListId={selectedListId}
+            onListChange={handleListChange}
+            onSelectTask={handleTaskClick}
           />
-          <PreviewPanel
-            task={selectedTask}
-            listId={selectedListId}
-            onTaskTitleUpdate={(taskId, newTitle) => {
-              setSelectedTask((prev) =>
-                prev && prev.id === taskId ? { ...prev, title: newTitle } : prev
-              );
-            }}
-          />
-        </>
-      )}
+        ))}
+        {/* Preview panel shows the selected task details */}
+        <PreviewPanel
+          task={selectedTask}
+          taskLists={taskLists}
+          selectedListId={selectedListId}
+        />
+      </div>
     </div>
   );
-}
+};
 
 export default App;
