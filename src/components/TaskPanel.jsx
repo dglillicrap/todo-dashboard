@@ -1,20 +1,13 @@
-// src/components/PreviewPanel.jsx
-import React, { useEffect, useState } from 'react';
+// src/components/TaskPanel.jsx
+import React, { useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
+import useTasks from '../hooks/useTasks';
 
-export default function PreviewPanel({ task, listId, listName = '', onTaskTitleUpdate }) {
+const TaskPanel = ({ listId, listName, refreshKey, onSelectTask }) => {
   const { instance } = useMsal();
-  const [steps, setSteps] = useState([]);
-  const [newStep, setNewStep] = useState('');
-  const [notes, setNotes] = useState('');
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [editedTitle, setEditedTitle] = useState('');
-  const [editedListName, setEditedListName] = useState(listName);
-
-  useEffect(() => {
-    setEditedListName(listName || '');
-  }, [listName]);
+  const { tasks, loading } = useTasks(listId, refreshKey);
+  const [newTask, setNewTask] = useState('');
 
   const getToken = async () => {
     const account = instance.getActiveAccount();
@@ -26,224 +19,106 @@ export default function PreviewPanel({ task, listId, listName = '', onTaskTitleU
       });
     } catch (error) {
       if (error instanceof InteractionRequiredAuthError) {
-        const response = await instance.loginPopup({ scopes: ['Tasks.ReadWrite'] });
-        instance.setActiveAccount(response.account);
-        return response;
+        return await instance.loginPopup({ scopes: ['Tasks.ReadWrite'] });
       }
-      console.error('Token acquisition failed:', error);
+      console.error('Token error:', error);
       return null;
     }
   };
 
-  useEffect(() => {
-    const fetchStepsAndNotes = async () => {
-      if (!task || !listId) return;
-      const account = instance.getActiveAccount();
-      if (!account) return;
-
-      const response = await instance.acquireTokenSilent({
-        scopes: ['Tasks.Read'],
-        account,
-      });
-
-      const stepsRes = await fetch(
-        `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems`,
-        { headers: { Authorization: `Bearer ${response.accessToken}` } }
-      );
-      const stepsData = await stepsRes.json();
-      const sortedSteps = (stepsData.value || [])
-        .filter(step => !step.isChecked)
-        .sort((a, b) => a.displayName.localeCompare(b.displayName));
-      setSteps(sortedSteps);
-
-      const taskRes = await fetch(
-        `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
-        { headers: { Authorization: `Bearer ${response.accessToken}` } }
-      );
-      const taskData = await taskRes.json();
-      setNotes(taskData.body?.content || '');
-      setEditedTitle(taskData.title || '');
-    };
-    fetchStepsAndNotes();
-  }, [task, listId, instance]);
-
-  const handleAddStep = async () => {
-    if (!newStep.trim() || !task || !listId) return;
+  const handleAddTask = async () => {
+    if (!newTask.trim() || !listId) return;
     const response = await getToken();
     if (!response) return;
 
-    await fetch(
-      `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems`,
-      {
+    try {
+      await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${response.accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ displayName: newStep }),
-      }
-    );
-    setNewStep('');
-    window.dispatchEvent(new CustomEvent('refreshTasks', { detail: listId }));
+        body: JSON.stringify({ title: newTask }),
+      });
+      setNewTask('');
+      const event = new CustomEvent('refreshTasks', { detail: listId });
+      window.dispatchEvent(event);
+    } catch (err) {
+      console.error('Error creating task:', err);
+    }
   };
 
-  const updateTaskTitle = async () => {
+  const handleToggleComplete = async (task) => {
     const response = await getToken();
     if (!response) return;
-    await fetch(
-      `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${response.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title: editedTitle }),
-      }
-    );
-    setEditingTitle(false);
-    if (typeof onTaskTitleUpdate === 'function') onTaskTitleUpdate(task.id, editedTitle);
+    try {
+      await fetch(
+        `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${response.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: 'completed' }),
+        }
+      );
+      const event = new CustomEvent('refreshTasks', { detail: listId });
+      window.dispatchEvent(event);
+    } catch (err) {
+      console.error('Error completing task:', err);
+    }
   };
 
-  const updateTaskNotes = async () => {
-    const response = await getToken();
-    if (!response) return;
-    await fetch(
-      `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${response.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          body: { contentType: 'text', content: notes },
-        }),
-      }
-    );
-  };
+  const visibleTasks = tasks.filter((t) => t.status !== 'completed');
 
-  if (!task) return <p>Select a task to preview</p>;
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') handleAddTask();
+  };
 
   return (
-    <div>
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <h3 style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Task Pane</h3>
-        <span style={{ fontSize: '0.8rem', color: '#555' }}>from TaskList:</span>
+    <div className="task-panel">
+      {loading && <p>Loading...</p>}
+      {!loading && visibleTasks.length === 0 && <p>No tasks found.</p>}
+      {!loading && visibleTasks.length > 0 && (
+        <ul>
+          {visibleTasks.map((task) => (
+            <li key={task.id} className="task-item">
+              <input
+                type="checkbox"
+                onChange={() => handleToggleComplete(task)}
+                style={{ marginRight: '8px' }}
+              />
+              <span
+                onClick={() => onSelectTask(task, listId, listName)}
+                style={{ cursor: 'pointer' }}
+              >
+                {task.title}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="add-task-container">
         <input
           type="text"
-          value={editedListName}
-          onChange={(e) => setEditedListName(e.target.value)}
+          value={newTask}
+          onChange={(e) => setNewTask(e.target.value)}
+          onKeyDown={handleKeyPress}
+          placeholder="Add new task..."
+          className="task-input"
           style={{
             backgroundColor: '#d6eaff',
-            border: '1px solid #d0d0d0',
+            border: '1px solid #d3d3d3',
             borderRadius: '4px',
-            fontSize: '0.8rem',
-            padding: '2px 6px',
-            flex: '1',
+            padding: '6px 8px',
+            width: '100%',
+            boxSizing: 'border-box',
           }}
         />
       </div>
-
-      {/* Task title */}
-      {editingTitle ? (
-        <input
-          type="text"
-          value={editedTitle}
-          onChange={(e) => setEditedTitle(e.target.value)}
-          onBlur={updateTaskTitle}
-          style={{
-            fontSize: '0.8rem',
-            width: '100%',
-            backgroundColor: '#d6eaff',
-            border: '1px solid #d0d0d0',
-            borderRadius: '4px',
-            padding: '4px',
-            marginTop: '6px',
-            marginBottom: '6px',
-          }}
-        />
-      ) : (
-        <h4
-          style={{
-            fontSize: '0.8rem',
-            cursor: 'pointer',
-            margin: '6px 0',
-            padding: '4px',
-            border: '1px solid #d0d0d0',
-            borderRadius: '4px',
-            backgroundColor: '#f9f9f9',
-          }}
-          onClick={() => setEditingTitle(true)}
-        >
-          {editedTitle}
-        </h4>
-      )}
-
-      {/* Steps */}
-      <ul style={{ fontSize: '0.8rem' }}>
-        {steps.map((step) => (
-          <li
-            key={step.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginBottom: '4px',
-            }}
-          >
-            <input
-              type="checkbox"
-              onChange={(e) => toggleStepCompleted(step.id, e.target.checked)}
-            />
-            <input
-              type="text"
-              value={step.displayName}
-              onChange={(e) =>
-                setSteps((prev) =>
-                  prev.map((s) =>
-                    s.id === step.id ? { ...s, displayName: e.target.value } : s
-                  )
-                )
-              }
-              onBlur={() => commitStepName(step.id)}
-              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-              style={{ fontSize: '0.8rem', width: '90%' }}
-            />
-          </li>
-        ))}
-      </ul>
-
-      {/* Add step */}
-      <input
-        type="text"
-        value={newStep}
-        onChange={(e) => setNewStep(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && handleAddStep()}
-        placeholder="Add step"
-        style={{
-          width: '100%',
-          marginTop: '8px',
-          fontSize: '0.8rem',
-          backgroundColor: '#d6eaff',
-          border: '1px solid #d0d0d0',
-        }}
-      />
-
-      {/* Notes */}
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        onBlur={updateTaskNotes}
-        placeholder="Task notes"
-        style={{
-          width: '100%',
-          marginTop: '8px',
-          fontSize: '0.8rem',
-          height: '60px',
-        }}
-      />
     </div>
   );
-}
+};
+
+export default TaskPanel;
