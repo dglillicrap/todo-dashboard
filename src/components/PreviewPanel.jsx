@@ -11,7 +11,6 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
   const [editedTitle, setEditedTitle] = useState('');
   const [editedListName, setEditedListName] = useState(listName || '');
 
-  // Minimal sync for list name field
   useEffect(() => {
     setEditedListName(listName || '');
   }, [listName]);
@@ -80,7 +79,6 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
       }
     );
     setNewStep('');
-    // Reload steps
     window.dispatchEvent(new CustomEvent('refreshTasks', { detail: listId }));
   };
 
@@ -192,7 +190,7 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
           marginTop: '8px',
           fontSize: '0.8rem',
           backgroundColor: '#d6eaff',
-          border: '1px solid '#d0d0d0',
+          border: '1px solid #d0d0d0',
         }}
       />
 
