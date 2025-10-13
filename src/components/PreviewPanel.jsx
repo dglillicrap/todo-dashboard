@@ -12,6 +12,10 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
   const [editedTitle, setEditedTitle] = useState('');
   const [editedListName, setEditedListName] = useState(listName || '');
 
+  useEffect(() => {
+    setEditedListName(listName || '');
+  }, [listName]);
+
   const getToken = async () => {
     const account = instance.getActiveAccount();
     if (!account) return null;
@@ -22,9 +26,7 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
       });
     } catch (error) {
       if (error instanceof InteractionRequiredAuthError) {
-        const response = await instance.loginPopup({
-          scopes: ['Tasks.ReadWrite'],
-        });
+        const response = await instance.loginPopup({ scopes: ['Tasks.ReadWrite'] });
         instance.setActiveAccount(response.account);
         return response;
       }
@@ -50,16 +52,8 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
       );
       const stepsData = await stepsRes.json();
       const sortedSteps = (stepsData.value || [])
-        .filter(step => !step.isChecked)
-        .sort((a, b) => {
-          const aTitle = a.displayName || '';
-          const bTitle = b.displayName || '';
-          const aIsBottom = aTitle.startsWith('🔻') || aTitle.startsWith('~');
-          const bIsBottom = bTitle.startsWith('🔻') || bTitle.startsWith('~');
-          if (aIsBottom && !bIsBottom) return 1;
-          if (!aIsBottom && bIsBottom) return -1;
-          return aTitle.localeCompare(bTitle);
-        });
+        .filter((step) => !step.isChecked)
+        .sort((a, b) => a.displayName.localeCompare(b.displayName));
       setSteps(sortedSteps);
 
       const taskRes = await fetch(
@@ -69,17 +63,16 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
       const taskData = await taskRes.json();
       setNotes(taskData.body?.content || '');
       setEditedTitle(taskData.title || '');
-      setEditedListName(listName || '');
     };
     fetchStepsAndNotes();
-  }, [task, listId, instance, listName]);
+  }, [task, listId, instance]);
 
   const handleAddStep = async () => {
     if (!newStep.trim() || !task || !listId) return;
     const response = await getToken();
     if (!response) return;
 
-    const res = await fetch(
+    await fetch(
       `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems`,
       {
         method: 'POST',
@@ -90,62 +83,8 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
         body: JSON.stringify({ displayName: newStep }),
       }
     );
-    const newItem = await res.json();
-    const updatedSteps = [...steps, newItem].sort((a, b) => {
-      const aTitle = a.displayName || '';
-      const bTitle = b.displayName || '';
-      const aIsBottom = aTitle.startsWith('🔻') || aTitle.startsWith('~');
-      const bIsBottom = bTitle.startsWith('🔻') || bTitle.startsWith('~');
-      if (aIsBottom && !bIsBottom) return 1;
-      if (!aIsBottom && bIsBottom) return -1;
-      return aTitle.localeCompare(bTitle);
-    });
-    setSteps(updatedSteps);
     setNewStep('');
-  };
-
-  const updateStepNameLocal = (stepId, newName) => {
-    setSteps(prev =>
-      prev.map(step =>
-        step.id === stepId ? { ...step, displayName: newName } : step
-      )
-    );
-  };
-
-  const commitStepName = async (stepId) => {
-    const response = await getToken();
-    if (!response) return;
-    const step = steps.find(s => s.id === stepId);
-    if (!step) return;
-
-    await fetch(
-      `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems/${stepId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${response.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ displayName: step.displayName }),
-      }
-    );
-  };
-
-  const toggleStepCompleted = async (stepId, checked) => {
-    const response = await getToken();
-    if (!response) return;
-    await fetch(
-      `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems/${stepId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${response.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isChecked: !!checked }),
-      }
-    );
-    if (checked) setSteps(prev => prev.filter(s => s.id !== stepId));
+    window.dispatchEvent(new CustomEvent('refreshTasks', { detail: listId }));
   };
 
   const updateTaskTitle = async () => {
@@ -163,9 +102,7 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
       }
     );
     setEditingTitle(false);
-    if (typeof onTaskTitleUpdate === 'function') {
-      onTaskTitleUpdate(task.id, editedTitle);
-    }
+    if (typeof onTaskTitleUpdate === 'function') onTaskTitleUpdate(task.id, editedTitle);
   };
 
   const updateTaskNotes = async () => {
@@ -190,12 +127,9 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
 
   return (
     <div>
-      {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <h3 style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Task Pane</h3>
-        <span style={{ fontSize: '0.8rem', color: '#555' }}>
-          from TaskList:
-        </span>
+        <span style={{ fontSize: '0.8rem', color: '#555' }}>from TaskList:</span>
         <input
           type="text"
           value={editedListName}
@@ -211,7 +145,6 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
         />
       </div>
 
-      {/* Task title */}
       {editingTitle ? (
         <input
           type="text"
@@ -246,38 +179,15 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
         </h4>
       )}
 
-      {/* Steps list */}
       <ul style={{ fontSize: '0.8rem' }}>
         {steps.map((step) => (
-          <li
-            key={step.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginBottom: '4px',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={false}
-              onChange={(e) => toggleStepCompleted(step.id, e.target.checked)}
-            />
-            <input
-              type="text"
-              value={step.displayName}
-              onChange={(e) => updateStepNameLocal(step.id, e.target.value)}
-              onBlur={() => commitStepName(step.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur();
-              }}
-              style={{ fontSize: '0.8rem', width: '90%' }}
-            />
+          <li key={step.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input type="checkbox" checked={false} readOnly />
+            <span>{step.displayName}</span>
           </li>
         ))}
       </ul>
 
-      {/* Add step */}
       <input
         type="text"
         value={newStep}
@@ -290,11 +200,9 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
           fontSize: '0.8rem',
           backgroundColor: '#d6eaff',
           border: '1px solid #d0d0d0',
-          color: 'inherit',
         }}
       />
 
-      {/* Notes */}
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
