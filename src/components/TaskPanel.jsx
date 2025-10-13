@@ -109,7 +109,7 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
           placeholder="Add new task..."
           className="task-input"
           style={{
-            backgroundColor: '#e6f2ff', // light blue
+            backgroundColor: '#d6eaff', // light blue
             border: '1px solid #d3d3d3', // light gray border
             borderRadius: '4px',
             padding: '6px 8px',
