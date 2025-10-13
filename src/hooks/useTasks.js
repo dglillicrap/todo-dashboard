@@ -38,10 +38,10 @@ const useTasks = (listId, refreshKey) => {
       if (!result.ok) throw new Error(`Graph error: ${result.status}`);
       const data = await result.json();
 
-      // Sort alphabetically, pushing 🕳️ tasks to bottom
+      // Sort alphabetically, pushing 🔻 tasks to bottom
       const sorted = data.value.sort((a, b) => {
-        const aHole = a.title.startsWith('🕳️');
-        const bHole = b.title.startsWith('🕳️');
+        const aHole = a.title.startsWith('🔻');
+        const bHole = b.title.startsWith('🔻');
         if (aHole && !bHole) return 1;
         if (!aHole && bHole) return -1;
         return a.title.localeCompare(b.title);
