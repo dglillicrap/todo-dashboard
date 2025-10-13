@@ -1,4 +1,3 @@
-// src/components/PreviewPanel.jsx
 import React, { useEffect, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
@@ -12,6 +11,7 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
   const [editedTitle, setEditedTitle] = useState('');
   const [editedListName, setEditedListName] = useState(listName || '');
 
+  // Minimal sync for list name field
   useEffect(() => {
     setEditedListName(listName || '');
   }, [listName]);
@@ -21,112 +21,102 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
     if (!account) return null;
     try {
       return await instance.acquireTokenSilent({
-        scopes: ['Tasks.ReadWrite'],
+        scopes: ['Tasks.Read', 'Tasks.ReadWrite'],
         account,
       });
-    } catch (error) {
-      if (error instanceof InteractionRequiredAuthError) {
-        const response = await instance.loginPopup({ scopes: ['Tasks.ReadWrite'] });
-        instance.setActiveAccount(response.account);
-        return response;
+    } catch (e) {
+      if (e instanceof InteractionRequiredAuthError) {
+        const r = await instance.loginPopup({ scopes: ['Tasks.Read', 'Tasks.ReadWrite'] });
+        instance.setActiveAccount(r.account);
+        return r;
       }
-      console.error('Token acquisition failed:', error);
+      console.error('Token error:', e);
       return null;
     }
   };
 
   useEffect(() => {
-    const fetchStepsAndNotes = async () => {
+    const load = async () => {
       if (!task || !listId) return;
       const account = instance.getActiveAccount();
       if (!account) return;
 
-      const response = await instance.acquireTokenSilent({
-        scopes: ['Tasks.Read'],
+      const resp = await instance.acquireTokenSilent({
+        scopes: ['Tasks.Read', 'Tasks.ReadWrite'],
         account,
       });
 
       const stepsRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems`,
-        { headers: { Authorization: `Bearer ${response.accessToken}` } }
+        { headers: { Authorization: `Bearer ${resp.accessToken}` } }
       );
       const stepsData = await stepsRes.json();
-      const sortedSteps = (stepsData.value || [])
-        .filter((step) => !step.isChecked)
-        .sort((a, b) => a.displayName.localeCompare(b.displayName));
-      setSteps(sortedSteps);
+      setSteps((stepsData.value || []).filter((s) => !s.isChecked));
 
       const taskRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
-        { headers: { Authorization: `Bearer ${response.accessToken}` } }
+        { headers: { Authorization: `Bearer ${resp.accessToken}` } }
       );
       const taskData = await taskRes.json();
       setNotes(taskData.body?.content || '');
       setEditedTitle(taskData.title || '');
     };
-    fetchStepsAndNotes();
+    load();
   }, [task, listId, instance]);
 
   const handleAddStep = async () => {
     if (!newStep.trim() || !task || !listId) return;
-    const response = await getToken();
-    if (!response) return;
-
+    const resp = await getToken();
+    if (!resp) return;
     await fetch(
       `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems`,
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${response.accessToken}`,
+          Authorization: `Bearer ${resp.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ displayName: newStep }),
       }
     );
     setNewStep('');
+    // Reload steps
     window.dispatchEvent(new CustomEvent('refreshTasks', { detail: listId }));
   };
 
   const updateTaskTitle = async () => {
-    const response = await getToken();
-    if (!response) return;
-    await fetch(
-      `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${response.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title: editedTitle }),
-      }
-    );
+    const resp = await getToken();
+    if (!resp) return;
+    await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${resp.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title: editedTitle }),
+    });
     setEditingTitle(false);
-    if (typeof onTaskTitleUpdate === 'function') onTaskTitleUpdate(task.id, editedTitle);
+    onTaskTitleUpdate?.(task.id, editedTitle);
   };
 
   const updateTaskNotes = async () => {
-    const response = await getToken();
-    if (!response) return;
-    await fetch(
-      `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${response.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          body: { contentType: 'text', content: notes },
-        }),
-      }
-    );
+    const resp = await getToken();
+    if (!resp) return;
+    await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${resp.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ body: { contentType: 'text', content: notes } }),
+    });
   };
 
   if (!task) return <p>Select a task to preview</p>;
 
   return (
     <div>
+      {/* Header with list name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <h3 style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Task Pane</h3>
         <span style={{ fontSize: '0.8rem', color: '#555' }}>from TaskList:</span>
@@ -145,6 +135,7 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
         />
       </div>
 
+      {/* Single-box editable title */}
       {editingTitle ? (
         <input
           type="text"
@@ -179,15 +170,17 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
         </h4>
       )}
 
+      {/* Steps (incomplete only) */}
       <ul style={{ fontSize: '0.8rem' }}>
         {steps.map((step) => (
           <li key={step.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <input type="checkbox" checked={false} readOnly />
+            <input type="checkbox" readOnly />
             <span>{step.displayName}</span>
           </li>
         ))}
       </ul>
 
+      {/* Add step */}
       <input
         type="text"
         value={newStep}
@@ -199,10 +192,11 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
           marginTop: '8px',
           fontSize: '0.8rem',
           backgroundColor: '#d6eaff',
-          border: '1px solid #d0d0d0',
+          border: '1px solid '#d0d0d0',
         }}
       />
 
+      {/* Notes */}
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
