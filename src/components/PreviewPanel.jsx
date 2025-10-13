@@ -3,13 +3,14 @@ import React, { useEffect, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 
-export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
+export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate }) {
   const { instance } = useMsal();
   const [steps, setSteps] = useState([]);
   const [newStep, setNewStep] = useState('');
   const [notes, setNotes] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
+  const [editedListName, setEditedListName] = useState(listName || '');
 
   const getToken = async () => {
     const account = instance.getActiveAccount();
@@ -51,12 +52,12 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
       );
       const stepsData = await stepsRes.json();
       const sortedSteps = (stepsData.value || [])
-        .filter(step => !step.isChecked) // show only incomplete
+        .filter(step => !step.isChecked)
         .sort((a, b) => {
           const aTitle = a.displayName || '';
           const bTitle = b.displayName || '';
-          const aIsBottom = aTitle.startsWith('🕳️') || aTitle.startsWith('~');
-          const bIsBottom = bTitle.startsWith('🕳️') || bTitle.startsWith('~');
+          const aIsBottom = aTitle.startsWith('🔻') || aTitle.startsWith('~');
+          const bIsBottom = bTitle.startsWith('🔻') || bTitle.startsWith('~');
           if (aIsBottom && !bIsBottom) return 1;
           if (!aIsBottom && bIsBottom) return -1;
           return aTitle.localeCompare(bTitle);
@@ -106,7 +107,6 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
     setNewStep('');
   };
 
-  // Local update while typing (no network)
   const updateStepNameLocal = (stepId, newName) => {
     setSteps(prev =>
       prev.map(step =>
@@ -115,11 +115,9 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
     );
   };
 
-  // Commit name change to Graph on blur/Enter
   const commitStepName = async (stepId) => {
     const response = await getToken();
     if (!response) return;
-
     const step = steps.find(s => s.id === stepId);
     if (!step) return;
 
@@ -136,7 +134,6 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
     );
   };
 
-  // Mark step completed (checkbox)
   const toggleStepCompleted = async (stepId, checked) => {
     const response = await getToken();
     if (!response) return;
@@ -152,16 +149,12 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
         body: JSON.stringify({ isChecked: !!checked }),
       }
     );
-
-    if (checked) {
-      setSteps(prev => prev.filter(s => s.id !== stepId)); // remove completed from view
-    }
+    if (checked) setSteps(prev => prev.filter(s => s.id !== stepId));
   };
 
   const updateTaskTitle = async () => {
     const response = await getToken();
     if (!response) return;
-
     await fetch(
       `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
       {
@@ -182,7 +175,6 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
   const updateTaskNotes = async () => {
     const response = await getToken();
     if (!response) return;
-
     await fetch(
       `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
       {
@@ -202,46 +194,91 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
 
   return (
     <div>
-      <h3 style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Task Pane</h3>
-
-      {editingTitle ? (
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Task Pane</h3>
+        <span style={{ fontSize: '0.8rem', color: '#555' }}>
+          from TaskList:
+        </span>
         <input
           type="text"
-          value={editedTitle}
-          onChange={(e) => setEditedTitle(e.target.value)}
-          onBlur={updateTaskTitle}
-          style={{ fontSize: '0.8rem', width: '100%', marginBottom: '6px' }}
+          value={editedListName}
+          onChange={(e) => setEditedListName(e.target.value)}
+          style={{
+            backgroundColor: '#d6eaff',
+            border: '1px solid #d0d0d0',
+            borderRadius: '4px',
+            fontSize: '0.8rem',
+            padding: '2px 6px',
+            flex: '1',
+          }}
         />
-      ) : (
-        <h4
-          style={{ fontSize: '0.8rem', cursor: 'pointer', marginBottom: '6px' }}
-          onClick={() => setEditingTitle(true)}
-        >
-          {editedTitle}
-        </h4>
-      )}
+      </div>
 
+      {/* Task title */}
+      <div
+        style={{
+          border: '1px solid #d0d0d0',
+          borderRadius: '4px',
+          padding: '4px',
+          marginTop: '6px',
+          marginBottom: '6px',
+        }}
+      >
+        {editingTitle ? (
+          <input
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            onBlur={updateTaskTitle}
+            style={{
+              fontSize: '0.8rem',
+              width: '100%',
+              backgroundColor: '#d6eaff',
+              border: '1px solid #d0d0d0',
+              borderRadius: '4px',
+              padding: '4px',
+            }}
+          />
+        ) : (
+          <h4
+            style={{
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              margin: 0,
+              backgroundColor: '#f9f9f9',
+            }}
+            onClick={() => setEditingTitle(true)}
+          >
+            {editedTitle}
+          </h4>
+        )}
+      </div>
+
+      {/* Steps list */}
       <ul style={{ fontSize: '0.8rem' }}>
         {steps.map((step) => (
-          <li key={step.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {/* Completion checkbox */}
+          <li
+            key={step.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginBottom: '4px',
+            }}
+          >
             <input
               type="checkbox"
-              checked={false} // list shows only incomplete steps
+              checked={false}
               onChange={(e) => toggleStepCompleted(step.id, e.target.checked)}
             />
-
-            {/* Step name (editable) */}
             <input
               type="text"
               value={step.displayName}
               onChange={(e) => updateStepNameLocal(step.id, e.target.value)}
               onBlur={() => commitStepName(step.id)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  e.currentTarget.blur(); // triggers commit
-                }
+                if (e.key === 'Enter') e.currentTarget.blur();
               }}
               style={{ fontSize: '0.8rem', width: '90%' }}
             />
@@ -249,7 +286,7 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
         ))}
       </ul>
 
-      {/* Add new step - styled light blue + light grey border */}
+      {/* Add step */}
       <input
         type="text"
         value={newStep}
@@ -260,9 +297,9 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
           width: '100%',
           marginTop: '8px',
           fontSize: '0.8rem',
-          backgroundColor: '#d6eaff',   // light blue, matches page
-          border: '1px solid #d0d0d0',  // light grey border
-          color: 'inherit'               // keep current text color
+          backgroundColor: '#d6eaff',
+          border: '1px solid #d0d0d0',
+          color: 'inherit',
         }}
       />
 
