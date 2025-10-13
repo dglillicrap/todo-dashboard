@@ -4,7 +4,7 @@ import { useMsal } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import useTasks from '../hooks/useTasks';
 
-const TaskPanel = ({ listId, listName, refreshKey, onSelectTask }) => {
+const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
   const { instance } = useMsal();
   const { tasks, loading } = useTasks(listId, refreshKey);
   const [newTask, setNewTask] = useState('');
@@ -70,6 +70,7 @@ const TaskPanel = ({ listId, listName, refreshKey, onSelectTask }) => {
     }
   };
 
+  // Show only incomplete tasks
   const visibleTasks = tasks.filter((t) => t.status !== 'completed');
 
   const handleKeyPress = (e) => {
@@ -108,8 +109,8 @@ const TaskPanel = ({ listId, listName, refreshKey, onSelectTask }) => {
           placeholder="Add new task..."
           className="task-input"
           style={{
-            backgroundColor: '#d6eaff',
-            border: '1px solid #d3d3d3',
+            backgroundColor: '#d6eaff', // light blue
+            border: '1px solid #d3d3d3', // light gray border
             borderRadius: '4px',
             padding: '6px 8px',
             width: '100%',
