@@ -27,10 +27,9 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
         });
         instance.setActiveAccount(response.account);
         return response;
-      } else {
-        console.error('Token acquisition failed:', error);
-        return null;
       }
+      console.error('Token acquisition failed:', error);
+      return null;
     }
   };
 
@@ -45,7 +44,6 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
         account,
       });
 
-      // Fetch steps
       const stepsRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems`,
         { headers: { Authorization: `Bearer ${response.accessToken}` } }
@@ -64,7 +62,6 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
         });
       setSteps(sortedSteps);
 
-      // Fetch notes and title
       const taskRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
         { headers: { Authorization: `Bearer ${response.accessToken}` } }
@@ -72,9 +69,10 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
       const taskData = await taskRes.json();
       setNotes(taskData.body?.content || '');
       setEditedTitle(taskData.title || '');
+      setEditedListName(listName || '');
     };
     fetchStepsAndNotes();
-  }, [task, listId, instance]);
+  }, [task, listId, instance, listName]);
 
   const handleAddStep = async () => {
     if (!newStep.trim() || !task || !listId) return;
@@ -93,12 +91,11 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
       }
     );
     const newItem = await res.json();
-
     const updatedSteps = [...steps, newItem].sort((a, b) => {
       const aTitle = a.displayName || '';
       const bTitle = b.displayName || '';
-      const aIsBottom = aTitle.startsWith('🕳️') || aTitle.startsWith('~');
-      const bIsBottom = bTitle.startsWith('🕳️') || bTitle.startsWith('~');
+      const aIsBottom = aTitle.startsWith('🔻') || aTitle.startsWith('~');
+      const bIsBottom = bTitle.startsWith('🔻') || bTitle.startsWith('~');
       if (aIsBottom && !bIsBottom) return 1;
       if (!aIsBottom && bIsBottom) return -1;
       return aTitle.localeCompare(bTitle);
@@ -137,7 +134,6 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
   const toggleStepCompleted = async (stepId, checked) => {
     const response = await getToken();
     if (!response) return;
-
     await fetch(
       `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems/${stepId}`,
       {
@@ -216,44 +212,39 @@ export default function PreviewPanel({ task, listId, listName, onTaskTitleUpdate
       </div>
 
       {/* Task title */}
-      <div
-        style={{
-          border: '1px solid #d0d0d0',
-          borderRadius: '4px',
-          padding: '4px',
-          marginTop: '6px',
-          marginBottom: '6px',
-        }}
-      >
-        {editingTitle ? (
-          <input
-            type="text"
-            value={editedTitle}
-            onChange={(e) => setEditedTitle(e.target.value)}
-            onBlur={updateTaskTitle}
-            style={{
-              fontSize: '0.8rem',
-              width: '100%',
-              backgroundColor: '#d6eaff',
-              border: '1px solid #d0d0d0',
-              borderRadius: '4px',
-              padding: '4px',
-            }}
-          />
-        ) : (
-          <h4
-            style={{
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              margin: 0,
-              backgroundColor: '#f9f9f9',
-            }}
-            onClick={() => setEditingTitle(true)}
-          >
-            {editedTitle}
-          </h4>
-        )}
-      </div>
+      {editingTitle ? (
+        <input
+          type="text"
+          value={editedTitle}
+          onChange={(e) => setEditedTitle(e.target.value)}
+          onBlur={updateTaskTitle}
+          style={{
+            fontSize: '0.8rem',
+            width: '100%',
+            backgroundColor: '#d6eaff',
+            border: '1px solid #d0d0d0',
+            borderRadius: '4px',
+            padding: '4px',
+            marginTop: '6px',
+            marginBottom: '6px',
+          }}
+        />
+      ) : (
+        <h4
+          style={{
+            fontSize: '0.8rem',
+            cursor: 'pointer',
+            margin: '6px 0',
+            padding: '4px',
+            border: '1px solid #d0d0d0',
+            borderRadius: '4px',
+            backgroundColor: '#f9f9f9',
+          }}
+          onClick={() => setEditingTitle(true)}
+        >
+          {editedTitle}
+        </h4>
+      )}
 
       {/* Steps list */}
       <ul style={{ fontSize: '0.8rem' }}>
