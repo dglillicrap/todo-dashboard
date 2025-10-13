@@ -2,65 +2,94 @@ import React, { useState, useEffect } from 'react';
 
 const PreviewPanel = ({
   task,
-  tasks,
-  listId,
-  listName,
-  refreshKey,
-  onRefresh,
+  taskListName,
+  updateTask,
+  addStep,
+  toggleStepComplete,
 }) => {
-  const [title, setTitle] = useState(task?.title || '');
-  const [notes, setNotes] = useState(task?.notes || '');
-  const [steps, setSteps] = useState(task?.steps || []);
+  // If no task is selected, show a placeholder
+  if (!task) {
+    return <div className="preview-panel">Select a task to preview</div>;
+  }
 
+  // Local state for editing the task title and list name
+  const [title, setTitle] = useState(task.title);
+  const [listName, setListName] = useState(taskListName);
+
+  // Keep local state in sync when the selected task changes
   useEffect(() => {
-    setTitle(task?.title || '');
-    setNotes(task?.notes || '');
-    setSteps(task?.steps || []);
-  }, [task]);
+    setTitle(task.title);
+    setListName(taskListName);
+  }, [task, taskListName]);
 
-  const handleSave = () => {
-    // When saving, call the onRefresh prop to let App re-fetch tasks.
-    // In a real app you would call updateTask or addStepToTask here.
-    onRefresh();
+  // Commit the title change on blur
+  const handleTitleBlur = () => {
+    if (title.trim() !== task.title) {
+      updateTask({ ...task, title: title.trim() });
+    }
   };
 
-  if (!task) {
-    return <p>Select a task to preview</p>;
-  }
+  // Add a step when Enter is pressed
+  const handleAddStep = (e) => {
+    if (e.key === 'Enter' && e.target.value.trim()) {
+      addStep(task, e.target.value.trim());
+      e.target.value = '';
+    }
+  };
 
   return (
     <div className="preview-panel">
-      <div className="preview-header">
+      {/* Header row: Task Pane with list name */}
+      <div className="preview-header" style={{ marginBottom: '6px' }}>
         <strong>Task Pane</strong>{' '}
-        {listName && (
-          <span style={{ marginLeft: 8, color: '#666' }}>
-            from TaskList: {listName}
-          </span>
-        )}
-      </div>
-
-      <div className="preview-content">
+        <span style={{ marginLeft: '6px' }}>from TaskList:</span>
         <input
-          className="preview-title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          type="text"
+          value={listName}
+          onChange={(e) => setListName(e.target.value)}
+          style={{
+            backgroundColor: '#d6eaff',
+            border: '1px solid lightgrey',
+            marginLeft: '4px',
+          }}
         />
-        <div className="preview-steps">
-          {steps.map((step, idx) => (
-            <div key={idx} className="step-item">
-              <span>{step}</span>
-            </div>
-          ))}
-        </div>
-
-        <textarea
-          className="preview-notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-
-        <button onClick={handleSave}>Save</button>
       </div>
+
+      {/* Task title with light grey box around it */}
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={handleTitleBlur}
+        style={{
+          width: '100%',
+          backgroundColor: '#d6eaff',
+          border: '1px solid lightgrey',
+          padding: '4px',
+          marginBottom: '8px',
+        }}
+      />
+
+      {/* Checklist steps, if any */}
+      {task.checklist &&
+        task.checklist.map((step) => (
+          <div key={step.id} style={{ display: 'flex', alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={step.state === 'completed'}
+              onChange={() => toggleStepComplete(task, step)}
+            />
+            <span style={{ marginLeft: '6px' }}>{step.title}</span>
+          </div>
+        ))}
+
+      {/* Input to add a new step */}
+      <input
+        type="text"
+        placeholder="Add step"
+        onKeyDown={handleAddStep}
+        style={{ marginTop: '8px', width: '100%' }}
+      />
     </div>
   );
 };
