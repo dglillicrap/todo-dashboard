@@ -1,116 +1,105 @@
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
-import useTaskLists from './hooks/useTaskLists';
+import { useMsal } from '@azure/msal-react';
 import TaskListSelector from './components/TaskListSelector';
 import TaskPanel from './components/TaskPanel';
-import SignInButton from './components/SignInButton';
 import PreviewPanel from './components/PreviewPanel';
+import SignInButton from './components/SignInButton';
+import useTaskLists from './hooks/useTaskLists';
 import './styles.css';
 
 const App = () => {
-const { taskLists } = useTaskLists();
-const [selectedGroup, setSelectedGroup] = useState('Group 1');
-const [panelSelections, setPanelSelections] = useState(() => {
-const saved = localStorage.getItem('savedGroups');
-const parsed = saved ? JSON.parse(saved) : {};
-return parsed[selectedGroup] || Array(6).fill('');
-});
-const [savedGroups, setSavedGroups] = useState(() => {
-const saved = localStorage.getItem('savedGroups');
-return saved ? JSON.parse(saved) : {};
-});
-const [selectedTask, setSelectedTask] = useState(null);
-const [refreshKey, setRefreshKey] = useState(0);
+  const { instance, accounts } = useMsal();
+  const { taskLists, loading: listsLoading } = useTaskLists();
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedListId, setSelectedListId] = useState('');
+  const [selectedListName, setSelectedListName] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [group, setGroup] = useState('1');
+  const [groupConfigs, setGroupConfigs] = useState({});
 
-// Tab title
-useEffect(() => {
-document.title = '✅ DGL ToDo';
-}, []);
+  const activeAccount = accounts[0] || null;
 
-// Load selections when group changes
-useEffect(() => {
-if (savedGroups[selectedGroup]) {
-setPanelSelections(savedGroups[selectedGroup]);
-} else {
-setPanelSelections(Array(6).fill(''));
-}
-}, [selectedGroup, savedGroups]);
+  useEffect(() => {
+    const saved = localStorage.getItem('groupConfigs');
+    if (saved) setGroupConfigs(JSON.parse(saved));
+  }, []);
 
-const handlePanelListChange = (panelIndex, listId) => {
-const updated = [...panelSelections];
-updated[panelIndex] = listId;
-setPanelSelections(updated);
-};
+  const handleSaveGroupSetup = () => {
+    const updated = {
+      ...groupConfigs,
+      [group]: {
+        listId: selectedListId,
+        listName: selectedListName,
+      },
+    };
+    setGroupConfigs(updated);
+    localStorage.setItem('groupConfigs', JSON.stringify(updated));
+  };
 
-const handleSaveGroup = () => {
-const updatedGroups = { ...savedGroups, [selectedGroup]: [...panelSelections] };
-setSavedGroups(updatedGroups);
-localStorage.setItem('savedGroups', JSON.stringify(updatedGroups));
-alert(`Saved current setup to ${selectedGroup}`);
-};
+  const handleSelectTask = (task, listId, listName) => {
+    setSelectedTask(task);
+    setSelectedListId(listId);
+    setSelectedListName(listName);
+  };
 
-const handleTaskTitleUpdate = (taskId, newTitle) => {
-if (selectedTask?.id === taskId) {
-setSelectedTask(prev => ({ ...prev, title: newTitle }));
-}
-setRefreshKey(prev => prev + 1); // trigger re-fetch in panels
-};
+  const handleTaskTitleUpdate = (taskId, newTitle) => {
+    if (selectedTask?.id === taskId) {
+      setSelectedTask({ ...selectedTask, title: newTitle });
+      setRefreshKey((prev) => prev + 1);
+    }
+  };
 
-return (
-<div className="dashboard">
-<div className="top-bar">
-<div className="top-left">
-<SignInButton />
-</div>
-<div className="top-center">
-<button onClick={handleSaveGroup}>Save Current Setup</button>
-</div>
-<div className="top-right">
-<select value={selectedGroup} onChange={(e) => setSelectedGroup(e.target.value)}>
-<option>Group 1</option>
-<option>Group 2</option>
-<option>Group 3</option>
-</select>
-</div>
-</div>
+  const isAuthenticated = !!activeAccount;
 
-<div className="panel-grid">
-{[...Array(6)].map((_, index) => {
-const listId = panelSelections[index];
-const panelKey = `${index}-${listId || 'none'}-${refreshKey}`; // remount each panel on refresh
+  return (
+    <div className="app-container">
+      {!isAuthenticated ? (
+        <div className="signin-container">
+          <p>Please sign in to continue...</p>
+          <SignInButton />
+        </div>
+      ) : (
+        <>
+          <div className="top-bar">
+            <SignInButton />
+            <select
+              value={group}
+              onChange={(e) => setGroup(e.target.value)}
+              className="group-dropdown"
+            >
+              <option value="1">Group 1</option>
+              <option value="2">Group 2</option>
+              <option value="3">Group 3</option>
+            </select>
+            <button onClick={handleSaveGroupSetup} className="save-button">
+              Save Current Setup
+            </button>
+          </div>
 
-return (
-<div className="panel" key={panelKey}>
-{index === 5 ? (
-<PreviewPanel
-task={selectedTask}
-listId={selectedTask?.parentListId}
-onTaskTitleUpdate={handleTaskTitleUpdate}
-/>
-) : (
-<>
-<TaskListSelector
-taskLists={taskLists}
-selectedListId={listId}
-onSelect={(id) => handlePanelListChange(index, id)}
-/>
-
-{!listId ? (
-<p style={{ fontSize: '0.8rem' }}>Select a task list</p>
-) : (
-<TaskPanel
-listId={listId}
-refreshKey={refreshKey}
-onSelectTask={(task) => setSelectedTask({ ...task, parentListId: listId })}
-/>
-)}
-</>
-)}
-</div>
-);
-})}
-</div>
-</div>
-);
+          <div className="dashboard-grid">
+            {[1, 2, 3, 4, 5].map((panelIndex) => (
+              <TaskPanel
+                key={panelIndex}
+                listId={groupConfigs[group]?.[`panel${panelIndex}`]?.listId || ''}
+                listName={groupConfigs[group]?.[`panel${panelIndex}`]?.listName || ''}
+                refreshKey={refreshKey}
+                onSelectTask={handleSelectTask}
+              />
+            ))}
+            <div className="preview-panel">
+              <PreviewPanel
+                task={selectedTask}
+                listId={selectedListId}
+                listName={selectedListName}
+                onTaskTitleUpdate={handleTaskTitleUpdate}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
 };
 
 export default App;
