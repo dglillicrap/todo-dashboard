@@ -91,7 +91,7 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
                 style={{ marginRight: '8px' }}
               />
               <span
-                onClick={() => onSelectTask(task)}
+                onClick={() => onSelectTask(task, listId, selectedListName)}
                 style={{ cursor: 'pointer' }}
               >
                 {task.title}
