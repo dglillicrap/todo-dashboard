@@ -1,10 +1,9 @@
-// src/components/TaskPanel.jsx
 import React, { useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import useTasks from '../hooks/useTasks';
 
-const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
+const TaskPanel = ({ listId, listName, refreshKey, onSelectTask }) => {
   const { instance } = useMsal();
   const { tasks, loading } = useTasks(listId, refreshKey);
   const [newTask, setNewTask] = useState('');
@@ -14,66 +13,59 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
     if (!account) return null;
     try {
       return await instance.acquireTokenSilent({
-        scopes: ['Tasks.ReadWrite'],
+        scopes: ['Tasks.Read', 'Tasks.ReadWrite'],
         account,
       });
-    } catch (error) {
-      if (error instanceof InteractionRequiredAuthError) {
-        return await instance.loginPopup({ scopes: ['Tasks.ReadWrite'] });
+    } catch (e) {
+      if (e instanceof InteractionRequiredAuthError) {
+        return await instance.loginPopup({ scopes: ['Tasks.Read', 'Tasks.ReadWrite'] });
       }
-      console.error('Token error:', error);
+      console.error('Token error:', e);
       return null;
     }
   };
 
   const handleAddTask = async () => {
     if (!newTask.trim() || !listId) return;
-    const response = await getToken();
-    if (!response) return;
-
+    const resp = await getToken();
+    if (!resp) return;
     try {
       await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${response.accessToken}`,
+          Authorization: `Bearer ${resp.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ title: newTask }),
       });
       setNewTask('');
-      const event = new CustomEvent('refreshTasks', { detail: listId });
-      window.dispatchEvent(event);
+      window.dispatchEvent(new CustomEvent('refreshTasks', { detail: listId }));
     } catch (err) {
-      console.error('Error creating task:', err);
+      console.error('Create task failed:', err);
     }
   };
 
   const handleToggleComplete = async (task) => {
-    const response = await getToken();
-    if (!response) return;
+    const resp = await getToken();
+    if (!resp) return;
     try {
-      await fetch(
-        `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${response.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status: 'completed' }),
-        }
-      );
-      const event = new CustomEvent('refreshTasks', { detail: listId });
-      window.dispatchEvent(event);
+      await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${resp.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'completed' }),
+      });
+      window.dispatchEvent(new CustomEvent('refreshTasks', { detail: listId }));
     } catch (err) {
-      console.error('Error completing task:', err);
+      console.error('Complete task failed:', err);
     }
   };
 
-  // Show only incomplete tasks
   const visibleTasks = tasks.filter((t) => t.status !== 'completed');
 
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter') handleAddTask();
   };
 
@@ -90,10 +82,8 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
                 onChange={() => handleToggleComplete(task)}
                 style={{ marginRight: '8px' }}
               />
-              <span
-                onClick={() => onSelectTask(task, listId, listName)}
-                style={{ cursor: 'pointer' }}
-              >
+              {/* Minimal change: pass task + listId + listName */}
+              <span onClick={() => onSelectTask(task, listId, listName)} style={{ cursor: 'pointer' }}>
                 {task.title}
               </span>
             </li>
@@ -105,12 +95,12 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
           type="text"
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
-          onKeyDown={handleKeyPress}
+          onKeyDown={handleKeyDown}
           placeholder="Add new task..."
           className="task-input"
           style={{
-            backgroundColor: '#d6eaff', // light blue
-            border: '1px solid #d3d3d3', // light gray border
+            backgroundColor: '#d6eaff',
+            border: '1px solid #d3d3d3',
             borderRadius: '4px',
             padding: '6px 8px',
             width: '100%',
