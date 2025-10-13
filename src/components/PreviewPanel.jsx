@@ -1,66 +1,88 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
-const PreviewPanel = ({
-  task,
-  tasks,
-  listId,
-  listName,
-  refreshKey,
-  onRefresh,
-}) => {
-  const [title, setTitle] = useState(task?.title || '');
-  const [notes, setNotes] = useState(task?.notes || '');
-  const [steps, setSteps] = useState(task?.steps || []);
-
-  useEffect(() => {
-    setTitle(task?.title || '');
-    setNotes(task?.notes || '');
-    setSteps(task?.steps || []);
-  }, [task]);
-
-  const handleSave = () => {
-    // call onRefresh so the parent can re-fetch tasks
-    onRefresh();
-  };
-
-  if (!task) {
-    return (
-      <div className="preview-panel">
-        <p>Select a task to preview</p>
-      </div>
-    );
+const PreviewPanel = ({ selectedTask, updateTask, updateStep }) => {
+  if (!selectedTask) {
+    return <div className="panel">Select a task to preview</div>;
   }
 
+  const { listName, task } = selectedTask;
+
+  const handleTitleChange = (e) => {
+    // update the task title
+    updateTask(selectedTask.listId, { ...task, title: e.target.value });
+  };
+
+  const handleListNameChange = (e) => {
+    // here you could implement renaming the list if desired
+  };
+
   return (
-    <div className="preview-panel">
-      <div className="preview-header">
-        <strong>Task Pane</strong>
-        {listName && (
-          <span style={{ marginLeft: 8, color: '#666' }}>
-            from TaskList: {listName}
-          </span>
-        )}
-      </div>
-      <div className="preview-content">
+    <div className="panel">
+      <div style={{ marginBottom: 5 }}>
+        <strong>Task Pane</strong>{' '}
+        <span style={{ marginLeft: 8 }}>from TaskList:</span>
         <input
-          className="preview-title"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
+          type="text"
+          value={listName}
+          onChange={handleListNameChange}
+          style={{
+            background: '#d6eaff',
+            border: '1px solid #ccc',
+            padding: '2px',
+            marginLeft: 4,
+          }}
         />
-        <div className="preview-steps">
-          {steps.map((step, idx) => (
-            <div key={idx} className="step-item">
-              <span>{step}</span>
-            </div>
-          ))}
-        </div>
-        <textarea
-          className="preview-notes"
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-        />
-        <button onClick={handleSave}>Save</button>
       </div>
+      <input
+        type="text"
+        value={task.title}
+        onChange={handleTitleChange}
+        style={{
+          background: '#d6eaff',
+          border: '1px solid #ccc',
+          width: '100%',
+          marginBottom: 5,
+        }}
+      />
+      {task.steps?.map((step, index) => (
+        <div key={index}>
+          <input
+            type="checkbox"
+            checked={step.completed}
+            onChange={() =>
+              updateStep(selectedTask.listId, index, {
+                ...step,
+                completed: !step.completed,
+              })
+            }
+          />
+          <input
+            type="text"
+            value={step.title}
+            onChange={(e) =>
+              updateStep(selectedTask.listId, index, {
+                ...step,
+                title: e.target.value,
+              })
+            }
+            style={{ marginLeft: 5 }}
+          />
+        </div>
+      ))}
+      <textarea
+        rows={4}
+        value={task.notes || ''}
+        onChange={(e) =>
+          updateTask(selectedTask.listId, { ...task, notes: e.target.value })
+        }
+        placeholder="Task notes"
+        style={{
+          width: '100%',
+          marginTop: 8,
+          background: '#d6eaff',
+          border: '1px solid #ccc',
+        }}
+      />
     </div>
   );
 };
