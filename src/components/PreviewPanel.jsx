@@ -36,42 +36,70 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
 
   useEffect(() => {
     const fetchStepsAndNotes = async () => {
-      if (!task || !listId) return;
+      if (!task || !listId) {
+        console.log('PreviewPanel: Missing task or listId');
+        return;
+      }
       const account = instance.getActiveAccount();
-      if (!account) return;
+      if (!account) {
+        console.log('PreviewPanel: No active account');
+        return;
+      }
 
-      const response = await instance.acquireTokenSilent({
-        scopes: ['Tasks.Read'],
-        account,
-      });
-
-      // Fetch steps
-      const stepsRes = await fetch(
-        `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems`,
-        { headers: { Authorization: `Bearer ${response.accessToken}` } }
-      );
-      const stepsData = await stepsRes.json();
-      const sortedSteps = (stepsData.value || [])
-        .filter(step => !step.isChecked) // show only incomplete
-        .sort((a, b) => {
-          const aTitle = a.displayName || '';
-          const bTitle = b.displayName || '';
-          const aIsBottom = aTitle.startsWith('🕳️') || aTitle.startsWith('~');
-          const bIsBottom = bTitle.startsWith('🕳️') || bTitle.startsWith('~');
-          if (aIsBottom && !bIsBottom) return 1;
-          if (!aIsBottom && bIsBottom) return -1;
-          return aTitle.localeCompare(bTitle);
+      try {
+        const response = await instance.acquireTokenSilent({
+          scopes: ['Tasks.Read'],
+          account,
         });
-      setSteps(sortedSteps);
 
-      // Fetch notes and title
-      const taskRes = await fetch(
-        `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
-        { headers: { Authorization: `Bearer ${response.accessToken}` } }
-      );
-      const taskData = await taskRes.json();
-      setNotes(taskData.body?.content || '');
-      setEditedTitle(taskData.title || '');
+        console.log('PreviewPanel: Fetching steps for task', task.id);
+
+        // Fetch steps
+        const stepsRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}/checklistItems`,
+          { headers: { Authorization: `Bearer ${response.accessToken}` } }
+        );
+        
+        if (!stepsRes.ok) {
+          console.error('PreviewPanel: Failed to fetch steps', stepsRes.status);
+          return;
+        }
+        
+        const stepsData = await stepsRes.json();
+        console.log('PreviewPanel: Steps data', stepsData);
+        
+        const sortedSteps = (stepsData.value || [])
+          .filter(step => !step.isChecked) // show only incomplete
+          .sort((a, b) => {
+            const aTitle = a.displayName || '';
+            const bTitle = b.displayName || '';
+            const aIsBottom = aTitle.startsWith('🕳️') || aTitle.startsWith('~');
+            const bIsBottom = bTitle.startsWith('🕳️') || bTitle.startsWith('~');
+            if (aIsBottom && !bIsBottom) return 1;
+            if (!aIsBottom && bIsBottom) return -1;
+            return aTitle.localeCompare(bTitle);
+          });
+        setSteps(sortedSteps);
+
+        // Fetch notes and title
+        const taskRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`,
+          { headers: { Authorization: `Bearer ${response.accessToken}` } }
+        );
+        
+        if (!taskRes.ok) {
+          console.error('PreviewPanel: Failed to fetch task', taskRes.status);
+          return;
+        }
+        
+        const taskData = await taskRes.json();
+        console.log('PreviewPanel: Task data', taskData);
+        
+        setNotes(taskData.body?.content || '');
+        setEditedTitle(taskData.title || '');
+      } catch (error) {
+        console.error('PreviewPanel: Error fetching data', error);
+      }
     };
     fetchStepsAndNotes();
   }, [task, listId, instance]);
