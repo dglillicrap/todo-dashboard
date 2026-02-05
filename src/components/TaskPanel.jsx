@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import useTasks from '../hooks/useTasks';
 
-const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
+const TaskPanel = ({ tasks, onSelectTask, listId, refreshKey }) => {
   const { instance } = useMsal();
-  const { tasks, loading } = useTasks(listId, refreshKey);
   const [newTask, setNewTask] = useState('');
 
   const getToken = async () => {
@@ -79,16 +77,19 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
   return (
     <>
       {visibleTasks.length > 0 ? (
-        <ul>
+        <ul style={{ listStyle: 'none', padding: 0 }}>
           {visibleTasks.map((task) => (
-            <li key={task.id}>
+            <li key={task.id} style={{ marginBottom: '4px' }}>
               <input
                 type="checkbox"
                 checked={false}
                 onChange={() => handleToggleComplete(task)}
               />
               <span
-                onClick={() => onSelectTask(task)}
+                onClick={() => {
+                  console.log('Task clicked:', task);
+                  onSelectTask(task);
+                }}
                 style={{ cursor: 'pointer', marginLeft: '5px' }}
               >
                 {task.title}
@@ -105,7 +106,6 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
         onChange={(e) => setNewTask(e.target.value)}
         onKeyDown={handleKeyPress}
         placeholder="Add new task..."
-        className="task-input"
         style={{
           backgroundColor: '#d6eaff',
           border: '1px solid #d3d3d3',
