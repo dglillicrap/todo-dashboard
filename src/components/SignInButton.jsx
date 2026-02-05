@@ -7,18 +7,17 @@ const SignInButton = () => {
 
   const handleLogin = async () => {
     try {
-      const response = await instance.loginPopup({
+      await instance.loginRedirect({
         scopes: ['Tasks.Read', 'Tasks.ReadWrite'],
         prompt: 'select_account',
       });
-      instance.setActiveAccount(response.account);
     } catch (error) {
       console.error('Login failed:', error);
     }
   };
 
   const handleLogout = () => {
-    instance.logoutPopup();
+    instance.logoutRedirect();
   };
 
   return (
