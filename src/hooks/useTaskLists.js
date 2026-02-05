@@ -4,22 +4,22 @@ import { useEffect, useState } from 'react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 
 const useTaskLists = () => {
-  const { instance } = useMsal();
+  const { instance, accounts } = useMsal();
   const [taskLists, setTaskLists] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchTaskLists = async () => {
+      if (accounts.length === 0) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const account = instance.getActiveAccount();
-        if (!account) {
-          console.warn('No active account. User may not be signed in.');
-          setLoading(false);
-          return;
-        }
+        const account = accounts[0];
 
         const response = await instance.acquireTokenSilent({
-          scopes: ['Tasks.Read'],
+          scopes: ['Tasks.Read', 'Tasks.ReadWrite'],
           account,
         });
 
@@ -28,6 +28,10 @@ const useTaskLists = () => {
             Authorization: `Bearer ${response.accessToken}`,
           },
         });
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
 
         const data = await res.json();
         setTaskLists(data.value || []);
@@ -42,14 +46,8 @@ const useTaskLists = () => {
       }
     };
 
-    // Only run if MSAL is initialized
-    if (instance && instance.getAllAccounts().length > 0) {
-      fetchTaskLists();
-    } else {
-      console.warn('MSAL instance not ready or no accounts found.');
-      setLoading(false);
-    }
-  }, [instance]);
+    fetchTaskLists();
+  }, [instance, accounts]);
 
   return { taskLists, loading };
 };
