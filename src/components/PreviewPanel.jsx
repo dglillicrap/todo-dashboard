@@ -10,6 +10,8 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
 
+  console.log('PreviewPanel render:', { task, listId });
+
   const getToken = async () => {
     const account = instance.getActiveAccount();
     if (!account) return null;
