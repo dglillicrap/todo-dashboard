@@ -1,12 +1,3 @@
-<<<<<<< HEAD
-import React from 'react';
-
-const PreviewPanel = ({ selectedTask, updateTask, updateStep }) => {
-  if (!selectedTask) {
-    return <div className="panel">Select a task to preview</div>;
-  }
-=======
-// src/components/PreviewPanel.jsx
 import React, { useEffect, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
@@ -63,8 +54,8 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
         .sort((a, b) => {
           const aTitle = a.displayName || '';
           const bTitle = b.displayName || '';
-          const aIsBottom = aTitle.startsWith('🔻') || aTitle.startsWith('~');
-          const bIsBottom = bTitle.startsWith('🔻') || bTitle.startsWith('~');
+          const aIsBottom = aTitle.startsWith('🕳️') || aTitle.startsWith('~');
+          const bIsBottom = bTitle.startsWith('🕳️') || bTitle.startsWith('~');
           if (aIsBottom && !bIsBottom) return 1;
           if (!aIsBottom && bIsBottom) return -1;
           return aTitle.localeCompare(bTitle);
@@ -207,86 +198,8 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
   };
 
   if (!task) return <p>Select a task to preview</p>;
->>>>>>> d7bbb9aa (Describe the change)
-
-  const { listName, task } = selectedTask;
-
-  const handleTitleChange = (e) => {
-    // update the task title
-    updateTask(selectedTask.listId, { ...task, title: e.target.value });
-  };
-
-  const handleListNameChange = (e) => {
-    // here you could implement renaming the list if desired
-  };
 
   return (
-<<<<<<< HEAD
-    <div className="panel">
-      <div style={{ marginBottom: 5 }}>
-        <strong>Task Pane</strong>{' '}
-        <span style={{ marginLeft: 8 }}>from TaskList:</span>
-        <input
-          type="text"
-          value={listName}
-          onChange={handleListNameChange}
-          style={{
-            background: '#d6eaff',
-            border: '1px solid #ccc',
-            padding: '2px',
-            marginLeft: 4,
-          }}
-        />
-      </div>
-      <input
-        type="text"
-        value={task.title}
-        onChange={handleTitleChange}
-        style={{
-          background: '#d6eaff',
-          border: '1px solid #ccc',
-          width: '100%',
-          marginBottom: 5,
-        }}
-      />
-      {task.steps?.map((step, index) => (
-        <div key={index}>
-          <input
-            type="checkbox"
-            checked={step.completed}
-            onChange={() =>
-              updateStep(selectedTask.listId, index, {
-                ...step,
-                completed: !step.completed,
-              })
-            }
-          />
-          <input
-            type="text"
-            value={step.title}
-            onChange={(e) =>
-              updateStep(selectedTask.listId, index, {
-                ...step,
-                title: e.target.value,
-              })
-            }
-            style={{ marginLeft: 5 }}
-          />
-        </div>
-      ))}
-      <textarea
-        rows={4}
-        value={task.notes || ''}
-        onChange={(e) =>
-          updateTask(selectedTask.listId, { ...task, notes: e.target.value })
-        }
-        placeholder="Task notes"
-        style={{
-          width: '100%',
-          marginTop: 8,
-          background: '#d6eaff',
-          border: '1px solid #ccc',
-=======
     <div>
       <h3 style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Task Pane</h3>
 
@@ -346,9 +259,9 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
           width: '100%',
           marginTop: '8px',
           fontSize: '0.8rem',
-          backgroundColor: '#d6eaff',   // light blue, matches page
-          border: '1px solid #d0d0d0',  // light grey border
-          color: 'inherit'               // keep current text color
+          backgroundColor: '#d6eaff',
+          border: '1px solid #d0d0d0',
+          color: 'inherit'
         }}
       />
 
@@ -363,7 +276,6 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
           marginTop: '8px',
           fontSize: '0.8rem',
           height: '60px',
->>>>>>> d7bbb9aa (Describe the change)
         }}
       />
     </div>

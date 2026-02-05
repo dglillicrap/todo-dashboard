@@ -1,28 +1,8 @@
-// src/components/TaskPanel.jsx
 import React, { useState } from 'react';
+import { useMsal } from '@azure/msal-react';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
+import useTasks from '../hooks/useTasks';
 
-<<<<<<< HEAD
-const TaskPanel = ({
-  listId,
-  listName,
-  tasks,
-  addTask,
-  updateTask,
-  onSelectTask,
-}) => {
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-
-  const handleAdd = (e) => {
-    e.preventDefault();
-    if (newTaskTitle.trim()) {
-      addTask(newTaskTitle.trim());
-      setNewTaskTitle('');
-    }
-  };
-
-  // Only show incomplete tasks
-  const activeTasks = tasks.filter((t) => !t.completed);
-=======
 const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
   const { instance } = useMsal();
   const { tasks, loading } = useTasks(listId, refreshKey);
@@ -95,33 +75,21 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') handleAddTask();
   };
->>>>>>> d7bbb9aa (Describe the change)
 
   return (
-    <div className="panel">
-      <div><strong>{listName}</strong></div>
-      {activeTasks.length > 0 ? (
+    <>
+      {visibleTasks.length > 0 ? (
         <ul>
-          {activeTasks.map((task) => (
+          {visibleTasks.map((task) => (
             <li key={task.id}>
-              {/* only the checkbox toggles completion */}
               <input
                 type="checkbox"
-                checked={task.completed}
-                onChange={() =>
-                  updateTask({ ...task, completed: !task.completed })
-                }
+                checked={false}
+                onChange={() => handleToggleComplete(task)}
               />
-<<<<<<< HEAD
-              {/* clicking text just selects it for preview */}
-              <span
-                style={{ marginLeft: 5, cursor: 'pointer' }}
-                onClick={() => onSelectTask(task)}
-=======
               <span
                 onClick={() => onSelectTask(task)}
-                style={{ cursor: 'pointer' }}
->>>>>>> d7bbb9aa (Describe the change)
+                style={{ cursor: 'pointer', marginLeft: '5px' }}
               >
                 {task.title}
               </span>
@@ -131,33 +99,22 @@ const TaskPanel = ({ listId, refreshKey, onSelectTask }) => {
       ) : (
         <p>No tasks found.</p>
       )}
-      <form onSubmit={handleAdd}>
-        <input
-          type="text"
-<<<<<<< HEAD
-          value={newTaskTitle}
-          onChange={(e) => setNewTaskTitle(e.target.value)}
-          placeholder="Add new task…"
-          style={{
-            background: '#d6eaff',
-            border: '1px solid #ccc',
-=======
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-          onKeyDown={handleKeyPress}
-          placeholder="Add new task..."
-          className="task-input"
-          style={{
-            backgroundColor: '#d6eaff', // light blue
-            border: '1px solid #d3d3d3', // light gray border
-            borderRadius: '4px',
-            padding: '6px 8px',
->>>>>>> d7bbb9aa (Describe the change)
-            width: '100%',
-          }}
-        />
-      </form>
-    </div>
+      <input
+        type="text"
+        value={newTask}
+        onChange={(e) => setNewTask(e.target.value)}
+        onKeyDown={handleKeyPress}
+        placeholder="Add new task..."
+        className="task-input"
+        style={{
+          backgroundColor: '#d6eaff',
+          border: '1px solid #d3d3d3',
+          borderRadius: '4px',
+          padding: '6px 8px',
+          width: '100%',
+        }}
+      />
+    </>
   );
 };
 
