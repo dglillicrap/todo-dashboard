@@ -3,17 +3,17 @@ import { useMsal } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 
 export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
-  const { instance } = useMsal();
+  const { instance, accounts } = useMsal();
   const [steps, setSteps] = useState([]);
   const [newStep, setNewStep] = useState('');
   const [notes, setNotes] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
 
-  console.log('PreviewPanel render:', { task, listId });
+  console.log('PreviewPanel render:', { task, listId, accountsCount: accounts.length });
 
   const getToken = async () => {
-    const account = instance.getActiveAccount();
+    const account = accounts[0];
     if (!account) return null;
     try {
       return await instance.acquireTokenSilent({
@@ -40,9 +40,10 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
         console.log('PreviewPanel: Missing task or listId');
         return;
       }
-      const account = instance.getActiveAccount();
+      
+      const account = accounts[0];
       if (!account) {
-        console.log('PreviewPanel: No active account');
+        console.log('PreviewPanel: No account found. Accounts:', accounts.length);
         return;
       }
 
@@ -102,7 +103,7 @@ export default function PreviewPanel({ task, listId, onTaskTitleUpdate }) {
       }
     };
     fetchStepsAndNotes();
-  }, [task, listId, instance]);
+  }, [task, listId, instance, accounts]);
 
   const handleAddStep = async () => {
     if (!newStep.trim() || !task || !listId) return;
